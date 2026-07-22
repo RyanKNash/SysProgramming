@@ -3,22 +3,24 @@
 #include "cc.h"
 #include <sys/file.h>
 
-int
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	int id;
 	int fd;
 	FILE *fp;
 	CComp comp;
 
-	if(argc != 2) {
+	if (argc != 2)
+	{
 		fprintf(stderr, "Usage: %s ID\n", argv[0]);
 		exit(1);
 	}
-	
+
 	id = atoi(argv[1]);
 
 	fp = fopen("ccdb", "r");
-	if(fp == NULL) {
+	if (fp == NULL)
+	{
 		exit(2);
 	}
 
@@ -27,11 +29,13 @@ main(int argc, char *argv[]) {
 	flock(fd, LOCK_SH);
 
 	fseek(fp, id * sizeof(CComp), SEEK_SET);
-	if(fread(&comp, sizeof(CComp), 1, fp) != 1) {
+	if (fread(&comp, sizeof(CComp), 1, fp) != 1)
+	{
 		fprintf(stderr, "No record\n");
 		exit(3);
 	}
-	if(comp.id == 0) {
+	if (comp.id == 0)
+	{
 		fprintf(stderr, "Item not found\n");
 		exit(4);
 	}
