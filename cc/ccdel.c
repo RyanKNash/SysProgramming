@@ -1,47 +1,73 @@
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
-#include <unistd.h>
 #include "cc.h"
-#include <sys/stat.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    FILE *fp;
-    int fd;
-    struct stat file_info;
-    CComp findcomp;
+	char *end;
+	long item;
+	FILE *fp;
+	int fd;
+	CComp comp;
 
-    if (argc != 1)
-    {
-        fprintf("Usage: %s id\n", argv[0]);
-        exit(1);
-    }
+	if(argc != 2) {
+		fprintf(stderr, "Usage: %s ID\n", argv[0]);
+		return 1;
+	}
 
-    fp = fopen("ccdb", "r+");
-    if (fp == NULL)
-    {
-        perror("ccdb");
-        exit(2);
-    }
+	errno = 0;
+	item = strtol(argv[1], &end, 10);
+	if(errno != 0 || *argv[1] == '\0' || *end != '\0' ||
+	    item <= 0 || item > INT_MAX) {
+		fprintf(stderr, "Invalid item number: %s\n", argv[1]);
+		return 1;
+	}
 
-    fd = fileno(fp);
+	fp = fopen("ccdb", "r+");
+	if(fp == NULL) {
+		perror("ccdb");
+		return 2;
+	}
+	fd = fileno(fp);
 
-    if (flock(fd, LOCK_EX) != 0) {
-        perror("flock");
-        close(fp);
-        exit(3);
-    }
+	if(flock(fd, LOCK_EX) == -1) {
+		perror("flock");
+		fclose(fp);
+		return 3;
+	}
 
-    findcomp.id = argv[1];
+	if(fseek(fp, item * (long)sizeof(CComp), SEEK_SET) != 0 ||
+	    fread(&comp, sizeof(CComp), 1, fp) != 1 ||
+	    comp.id == 0) {
+		fprintf(stderr, "Item not found\n");
+		flock(fd, LOCK_UN);
+		fclose(fp);
+		return 4;
+	}
 
-    sleep(1);
-    fseek(fp, findcomp.id * sizeof(CComp), SEEK_SET);
-    findcomp.id = 0;
-    fwrite(&findcomp, sizeof(CComp), 1, fp);
+	memset(&comp, 0, sizeof(comp));
+	if(fseek(fp, item * (long)sizeof(CComp), SEEK_SET) != 0 ||
+	    fwrite(&comp, sizeof(CComp), 1, fp) != 1 ||
+	    fflush(fp) == EOF) {
+		perror("ccdb");
+		flock(fd, LOCK_UN);
+		fclose(fp);
+		return 5;
+	}
 
-
-    flock(fileno(fp), LOCK_UN);
-    fclose(fp);
+	if(flock(fd, LOCK_UN) == -1) {
+		perror("flock");
+		fclose(fp);
+		return 6;
+	}
+	if(fclose(fp) == EOF) {
+		perror("ccdb");
+		return 5;
+	}
+	return 0;
 }

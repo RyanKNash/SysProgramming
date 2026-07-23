@@ -1,0 +1,9 @@
+cc/add
+cc/ccdb
+cc/del
+cc/edit
+cc/item
+cc/match
+cc/year
+*.exe
+*.env
